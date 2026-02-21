@@ -8,6 +8,7 @@ import Slider from '@react-native-community/slider';
 import BreathingCircle from '../components/BreathingCircle';
 import { useTheme } from '../themes/ThemeContext';
 import { loadSoundAsync, playOneShot } from '../services/audioService';
+import { LoopPlayer } from '../services/loopPlayer';
 
 const DURATIONS = [5, 10, 15, 20, 30, 45, 60];
 const INTERVALS = [1, 2, 3, 5, 10, 15, 20, 30];
@@ -36,7 +37,7 @@ const MeditateScreen = () => {
 
   const intervalBellRef = useRef<Audio.Sound | null>(null);
   const finalGongRef = useRef<Audio.Sound | null>(null);
-  const ambientRefs = useRef<Record<AmbientKey, Audio.Sound | null>>({
+  const ambientRefs = useRef<Record<AmbientKey, LoopPlayer | null>>({
     brown: null,
     rain: null,
     ocean: null,
@@ -59,12 +60,9 @@ const MeditateScreen = () => {
       finalGongRef.current = await loadSoundAsync(require('../assets/sounds/final_gong.m4a'));
 
       for (const key of Object.keys(AMBIENT_ASSETS) as AmbientKey[]) {
-        const { sound } = await Audio.Sound.createAsync(AMBIENT_ASSETS[key], {
-          isLooping: true,
-          volume: 0,
-          shouldPlay: false,
-        });
-        ambientRefs.current[key] = sound;
+        const lp = new LoopPlayer(AMBIENT_ASSETS[key]);
+        await lp.init();
+        ambientRefs.current[key] = lp;
       }
     };
     load();
@@ -73,7 +71,7 @@ const MeditateScreen = () => {
       intervalBellRef.current?.unloadAsync();
       finalGongRef.current?.unloadAsync();
       for (const key of Object.keys(ambientRefs.current) as AmbientKey[]) {
-        ambientRefs.current[key]?.unloadAsync();
+        ambientRefs.current[key]?.destroy();
       }
     };
   }, []);
@@ -87,25 +85,19 @@ const MeditateScreen = () => {
   useEffect(() => {
     const toggleAmbient = async () => {
       for (const key of Object.keys(volumes) as AmbientKey[]) {
-        const sound = ambientRefs.current[key];
-        if (!sound) continue;
-        const status = await sound.getStatusAsync();
-        if (!status.isLoaded) continue;
+        const lp = ambientRefs.current[key];
+        if (!lp) continue;
 
         if (!isRunning || volumes[key] <= 0) {
-          if (status.isPlaying) await sound.pauseAsync();
-          await sound.setVolumeAsync(0);
+          await lp.stop();
           continue;
         }
         if (isPaused) {
-          if (status.isPlaying) await sound.pauseAsync();
+          await lp.pause();
           continue;
         }
         // Playing state
-        await sound.setVolumeAsync(volumes[key]);
-        if (!status.isPlaying) {
-          await sound.playAsync();
-        }
+        await lp.play(volumes[key]);
       }
     };
     toggleAmbient();
@@ -168,11 +160,10 @@ const MeditateScreen = () => {
     if (isRunning && isPaused) {
       setIsPaused(false);
       for (const key of Object.keys(ambientRefs.current) as AmbientKey[]) {
-        const sound = ambientRefs.current[key];
-        if (!sound) continue;
+        const lp = ambientRefs.current[key];
+        if (!lp) continue;
         if (volumes[key] > 0) {
-          await sound.setVolumeAsync(volumes[key]);
-          await sound.playAsync();
+          await lp.resume();
         }
       }
       return;
@@ -186,9 +177,7 @@ const MeditateScreen = () => {
     if (!isRunning) return;
     setIsPaused(true);
     for (const key of Object.keys(ambientRefs.current) as AmbientKey[]) {
-      const sound = ambientRefs.current[key];
-      if (!sound) continue;
-      await sound.pauseAsync();
+      await ambientRefs.current[key]?.pause();
     }
   };
 
@@ -199,10 +188,7 @@ const MeditateScreen = () => {
     setElapsed(0);
     setRemaining(durationMin * 60);
     for (const key of Object.keys(ambientRefs.current) as AmbientKey[]) {
-      const sound = ambientRefs.current[key];
-      if (!sound) continue;
-      await sound.stopAsync();
-      await sound.setPositionAsync(0);
+      await ambientRefs.current[key]?.stop();
     }
   };
 
@@ -214,18 +200,15 @@ const MeditateScreen = () => {
 
   const updateVolume = async (key: AmbientKey, value: number) => {
     setVolumes((prev) => ({ ...prev, [key]: value }));
-    const sound = ambientRefs.current[key];
-    if (!sound) return;
-    try {
-      const status = await sound.getStatusAsync();
-      if (!status.isLoaded) return;
-      await sound.setVolumeAsync(value);
-      if (value <= 0 && status.isPlaying) {
-        await sound.pauseAsync();
-      } else if (value > 0 && isRunning && !isPaused && !status.isPlaying) {
-        await sound.playAsync();
-      }
-    } catch {}
+    const lp = ambientRefs.current[key];
+    if (!lp) return;
+    if (value <= 0) {
+      await lp.stop();
+    } else if (isRunning && !isPaused) {
+      await lp.play(value);
+    } else {
+      await lp.setVolume(value);
+    }
   };
 
   return (
