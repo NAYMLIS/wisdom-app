@@ -8,7 +8,7 @@ import Slider from '@react-native-community/slider';
 import BreathingCircle from '../components/BreathingCircle';
 import { useTheme } from '../themes/ThemeContext';
 import { loadSoundAsync, playOneShot } from '../services/audioService';
-import { LoopPlayer } from '../services/loopPlayer';
+import { WebNoise, unlockAudio } from '../services/webNoise';
 
 const DURATIONS = [5, 10, 15, 20, 30, 45, 60];
 const INTERVALS = [1, 2, 3, 5, 10, 15, 20, 30];
@@ -37,33 +37,20 @@ const MeditateScreen = () => {
 
   const intervalBellRef = useRef<Audio.Sound | null>(null);
   const finalGongRef = useRef<Audio.Sound | null>(null);
-  const ambientRefs = useRef<Record<AmbientKey, LoopPlayer | null>>({
+  const ambientRefs = useRef<Record<AmbientKey, WebNoise | null>>({
     brown: null,
     rain: null,
     ocean: null,
     forest: null,
     bowl: null,
   });
-
-  const AMBIENT_ASSETS: Record<AmbientKey, any> = {
-    brown: require('../assets/sounds/brown_noise.m4a'),
-    rain: require('../assets/sounds/rain.m4a'),
-    ocean: require('../assets/sounds/ocean.m4a'),
-    forest: require('../assets/sounds/forest.m4a'),
-    bowl: require('../assets/sounds/singing_bowl.m4a'),
-  };
+  const ambientInited = useRef(false);
 
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true });
     const load = async () => {
       intervalBellRef.current = await loadSoundAsync(require('../assets/sounds/interval_bell.m4a'));
       finalGongRef.current = await loadSoundAsync(require('../assets/sounds/final_gong.m4a'));
-
-      for (const key of Object.keys(AMBIENT_ASSETS) as AmbientKey[]) {
-        const lp = new LoopPlayer(AMBIENT_ASSETS[key]);
-        await lp.init();
-        ambientRefs.current[key] = lp;
-      }
     };
     load();
 
@@ -76,6 +63,19 @@ const MeditateScreen = () => {
     };
   }, []);
 
+  /** Initialize WebNoise generators — must be called from tap handler */
+  const ensureAmbientInited = async () => {
+    if (ambientInited.current) return;
+    unlockAudio(); // MUST be synchronous in tap handler for iOS
+    const types: AmbientKey[] = ['brown', 'rain', 'ocean', 'forest', 'bowl'];
+    for (const key of types) {
+      const wn = new WebNoise(key);
+      await wn.init();
+      ambientRefs.current[key] = wn;
+    }
+    ambientInited.current = true;
+  };
+
   useEffect(() => {
     if (!isRunning && !isPreparing) {
       setRemaining(durationMin * 60);
@@ -83,24 +83,20 @@ const MeditateScreen = () => {
   }, [durationMin]);
 
   useEffect(() => {
-    const toggleAmbient = async () => {
-      for (const key of Object.keys(volumes) as AmbientKey[]) {
-        const lp = ambientRefs.current[key];
-        if (!lp) continue;
+    for (const key of Object.keys(volumes) as AmbientKey[]) {
+      const wn = ambientRefs.current[key];
+      if (!wn) continue;
 
-        if (!isRunning || volumes[key] <= 0) {
-          await lp.stop();
-          continue;
-        }
-        if (isPaused) {
-          await lp.pause();
-          continue;
-        }
-        // Playing state
-        await lp.play(volumes[key]);
+      if (!isRunning || volumes[key] <= 0) {
+        wn.stop();
+        continue;
       }
-    };
-    toggleAmbient();
+      if (isPaused) {
+        wn.pause();
+        continue;
+      }
+      wn.play(volumes[key]);
+    }
   }, [isRunning, isPaused, volumes]);
 
   useEffect(() => {
@@ -157,13 +153,16 @@ const MeditateScreen = () => {
   useKeepAwake(isRunning || isPreparing ? 'meditation' : undefined);
 
   const handleStart = async () => {
+    // Unlock audio + init noise generators on first tap
+    await ensureAmbientInited();
+
     if (isRunning && isPaused) {
       setIsPaused(false);
       for (const key of Object.keys(ambientRefs.current) as AmbientKey[]) {
-        const lp = ambientRefs.current[key];
-        if (!lp) continue;
+        const wn = ambientRefs.current[key];
+        if (!wn) continue;
         if (volumes[key] > 0) {
-          await lp.resume();
+          wn.resume(volumes[key]);
         }
       }
       return;
@@ -177,7 +176,7 @@ const MeditateScreen = () => {
     if (!isRunning) return;
     setIsPaused(true);
     for (const key of Object.keys(ambientRefs.current) as AmbientKey[]) {
-      await ambientRefs.current[key]?.pause();
+      ambientRefs.current[key]?.pause();
     }
   };
 
@@ -188,7 +187,7 @@ const MeditateScreen = () => {
     setElapsed(0);
     setRemaining(durationMin * 60);
     for (const key of Object.keys(ambientRefs.current) as AmbientKey[]) {
-      await ambientRefs.current[key]?.stop();
+      ambientRefs.current[key]?.stop();
     }
   };
 
@@ -200,14 +199,14 @@ const MeditateScreen = () => {
 
   const updateVolume = async (key: AmbientKey, value: number) => {
     setVolumes((prev) => ({ ...prev, [key]: value }));
-    const lp = ambientRefs.current[key];
-    if (!lp) return;
+    const wn = ambientRefs.current[key];
+    if (!wn) return;
     if (value <= 0) {
-      await lp.stop();
+      wn.stop();
     } else if (isRunning && !isPaused) {
-      await lp.play(value);
+      wn.play(value);
     } else {
-      await lp.setVolume(value);
+      wn.setVolume(value);
     }
   };
 
