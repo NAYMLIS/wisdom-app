@@ -11,19 +11,37 @@ import {
   Animated,
   Easing,
   useWindowDimensions,
+  LayoutAnimation,
+  UIManager,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
+import Constants from 'expo-constants';
 import Slider from '@react-native-community/slider';
 import BreathingCircle from '../components/BreathingCircle';
 import { useTheme } from '../themes/ThemeContext';
 import { loadSoundAsync, playOneShot } from '../services/audioService';
 import { WebNoise, unlockAudio } from '../services/webNoise';
+import { askCounsel, CounselSource } from '../services/counselService';
 
 const DURATIONS = [5, 10, 15, 20, 30, 45, 60];
 const INTERVALS = [1, 2, 3, 5, 10, 15, 20, 30];
+
+const TRADITIONS = [
+  'All Traditions',
+  'Christianity',
+  'Islam',
+  'Buddhism',
+  'Hinduism',
+  'Judaism',
+  'Taoism',
+  'Sikhism',
+  'Philosophy',
+];
 
 type AmbientKey = 'brown' | 'rain' | 'ocean' | 'forest' | 'bowl';
 
@@ -31,6 +49,7 @@ type Message = {
   id: string;
   role: 'assistant' | 'user';
   text: string;
+  sources?: CounselSource[];
 };
 
 const WisdomScreen = () => {
@@ -47,6 +66,10 @@ const WisdomScreen = () => {
   ]);
   const [draft, setDraft] = useState('');
   const [showMeditation, setShowMeditation] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
+  const [showSettings, setShowSettings] = useState(false);
+  const [traditionPreference, setTraditionPreference] = useState('All Traditions');
 
   const [durationMin, setDurationMin] = useState(10);
   const [intervalMin, setIntervalMin] = useState(5);
@@ -78,6 +101,7 @@ const WisdomScreen = () => {
   const ambientInited = useRef(false);
 
   const rotation = useRef(new Animated.Value(0)).current;
+  const chatScrollRef = useRef<ScrollView | null>(null);
 
   const stars = useMemo(
     () =>
@@ -100,6 +124,12 @@ const WisdomScreen = () => {
         useNativeDriver: true,
       })
     ).start();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
   }, []);
 
   const rotate = rotation.interpolate({
@@ -217,6 +247,12 @@ const WisdomScreen = () => {
 
   useKeepAwake(isRunning || isPreparing ? 'meditation' : undefined);
 
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      chatScrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, [messages, isTyping]);
+
   const handleStart = async () => {
     await ensureAmbientInited();
 
@@ -274,17 +310,36 @@ const WisdomScreen = () => {
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = draft.trim();
     if (!text) return;
     const userMessage = { id: `${Date.now()}`, role: 'user' as const, text };
+    setMessages((prev) => [...prev, userMessage]);
+    setDraft('');
+    setIsTyping(true);
+
+    const history = [...messages, userMessage]
+      .slice(-6)
+      .map((msg) => ({ role: msg.role, text: msg.text }));
+    const tradition = traditionPreference === 'All Traditions' ? undefined : traditionPreference;
+
+    const result = await askCounsel(text, history, tradition);
+    setIsTyping(false);
     const assistantMessage = {
       id: `${Date.now()}-reply`,
       role: 'assistant' as const,
-      text: "I'm still learning to listen. Soon I'll be able to offer wisdom from the world's great traditions.",
+      text: result.response,
+      sources: result.sources,
     };
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
-    setDraft('');
+    setMessages((prev) => [...prev, assistantMessage]);
+  };
+
+  const handleSuggestion = (suggestion: string) => {
+    setDraft(suggestion);
+  };
+
+  const toggleSources = (messageId: string) => {
+    setExpandedSources((prev) => ({ ...prev, [messageId]: !prev[messageId] }));
   };
 
   return (
@@ -333,32 +388,110 @@ const WisdomScreen = () => {
               </View>
               <Text style={[styles.logoText, { color: theme.colors.text }]}>LaNita</Text>
             </View>
-            <Text style={[styles.tagline, { color: theme.colors.secondary }]}>Where all paths converge in quiet light.</Text>
+            <TouchableOpacity
+              style={[styles.settingsButton, { borderColor: theme.colors.secondary }]}
+              onPress={() => setShowSettings(true)}
+            >
+              <Text style={[styles.settingsIcon, { color: theme.colors.primary }]}>⚙︎</Text>
+            </TouchableOpacity>
+            <Text style={[styles.tagline, { color: theme.colors.secondary }]}>
+              Where all paths converge in quiet light.
+            </Text>
           </View>
 
           <View style={[styles.card, styles.chatCard, { backgroundColor: theme.colors.surface, minHeight: chatMinHeight }]}
           >
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>AI Counsel</Text>
-              <Text style={[styles.sectionSubtitle, { color: theme.colors.secondary }]}>A gentle space for reflection and clarity.</Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.colors.secondary }]}>
+                A gentle space for reflection and clarity.
+              </Text>
+            </View>
+
+            <View style={[styles.chatWatermark, { borderColor: theme.colors.secondary }]} pointerEvents="none">
+              <View style={[styles.chatWatermarkInner, { borderColor: theme.colors.primary }]} />
             </View>
 
             <View style={styles.chatBody}>
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.chatList}>
+              <ScrollView
+                ref={(ref) => {
+                  chatScrollRef.current = ref;
+                }}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.chatList}
+              >
+                {messages.length === 1 && (
+                  <View style={styles.emptyState}>
+                    <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                      What weighs on your heart today?
+                    </Text>
+                    <Text style={[styles.emptySubtitle, { color: theme.colors.secondary }]}>
+                      Choose a question or share your own.
+                    </Text>
+                    <View style={styles.chipRow}>
+                      {[
+                        'How do I find peace in difficult times?',
+                        'What is the meaning of suffering?',
+                        'Guide me in forgiveness',
+                        'I need strength today',
+                      ].map((prompt) => (
+                        <TouchableOpacity
+                          key={prompt}
+                          style={[styles.chip, { borderColor: theme.colors.secondary }]}
+                          onPress={() => handleSuggestion(prompt)}
+                        >
+                          <Text style={[styles.chipText, { color: theme.colors.text }]}>{prompt}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
                 {messages.map((msg) => (
+                  <FadeInMessage key={msg.id}>
+                    <View
+                      style={[
+                        styles.bubble,
+                        msg.role === 'assistant' ? styles.bubbleLeft : styles.bubbleRight,
+                        msg.role === 'assistant'
+                          ? [styles.assistantBubble, { borderColor: theme.colors.secondary }]
+                          : [styles.userBubble, { borderColor: theme.colors.primary }],
+                      ]}
+                    >
+                      <Text style={[styles.bubbleText, { color: theme.colors.text }]}>{msg.text}</Text>
+                      {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                        <View style={styles.sourcesWrap}>
+                          <TouchableOpacity onPress={() => toggleSources(msg.id)}>
+                            <Text style={[styles.sourcesToggle, { color: theme.colors.secondary }]}> 
+                              {expandedSources[msg.id] ? 'Hide Sources' : 'Sources'}
+                            </Text>
+                          </TouchableOpacity>
+                          {expandedSources[msg.id] && (
+                            <View style={styles.sourcesList}>
+                              {msg.sources.map((source, index) => (
+                                <Text key={`${msg.id}-${index}`} style={[styles.sourceText, { color: theme.colors.secondary }]}> 
+                                  • {source.text} — {source.source}
+                                </Text>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  </FadeInMessage>
+                ))}
+                {isTyping && (
                   <View
-                    key={msg.id}
                     style={[
                       styles.bubble,
-                      msg.role === 'assistant' ? styles.bubbleLeft : styles.bubbleRight,
-                      msg.role === 'assistant'
-                        ? [styles.assistantBubble, { borderColor: theme.colors.primary }]
-                        : [styles.userBubble, { backgroundColor: theme.colors.accent }],
+                      styles.bubbleLeft,
+                      styles.assistantBubble,
+                      { borderColor: theme.colors.secondary },
                     ]}
                   >
-                    <Text style={[styles.bubbleText, { color: theme.colors.text }]}>{msg.text}</Text>
+                    <TypingIndicator color={theme.colors.secondary} />
                   </View>
-                ))}
+                )}
               </ScrollView>
 
               <View style={styles.inputRow}>
@@ -379,16 +512,28 @@ const WisdomScreen = () => {
             </View>
           </View>
 
+          <View style={[styles.divider, { backgroundColor: theme.colors.secondary }]} />
+
           <View style={[styles.card, { backgroundColor: theme.colors.surface }]}
           >
             <TouchableOpacity
               style={styles.accordionHeader}
-              onPress={() => setShowMeditation((prev) => !prev)}
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setShowMeditation((prev) => !prev);
+              }}
               activeOpacity={0.8}
             >
-              <View>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Meditation</Text>
-                <Text style={[styles.sectionSubtitle, { color: theme.colors.secondary }]}>Breathe with bells, ambient sound, and stillness.</Text>
+              <View style={styles.meditationHeaderLeft}>
+                <View style={[styles.meditationIcon, { borderColor: theme.colors.primary }]}> 
+                    <Text style={[styles.meditationIconText, { color: theme.colors.primary }]}>✦</Text>
+                </View>
+                <View>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Meditation</Text>
+                  <Text style={[styles.sectionSubtitle, { color: theme.colors.secondary }]}>
+                    Breathe with bells, ambient sound, and stillness.
+                  </Text>
+                </View>
               </View>
               <Text style={[styles.accordionToggle, { color: theme.colors.primary }]}>
                 {showMeditation ? 'Close' : 'Meditate'}
@@ -532,7 +677,93 @@ const WisdomScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal transparent visible={showSettings} animationType="fade">
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowSettings(false)}>
+          <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}> 
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Settings</Text>
+            <Text style={[styles.modalLabel, { color: theme.colors.secondary }]}>App</Text>
+            <Text style={[styles.modalText, { color: theme.colors.text }]}>LaNita • v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
+            <Text style={[styles.modalLabel, { color: theme.colors.secondary }]}>About LaNita</Text>
+            <Text style={[styles.modalText, { color: theme.colors.text }]}>LaNita bridges ancient wisdom and modern practice. Seek guidance from humanity's deepest spiritual traditions.</Text>
+            <Text style={[styles.modalLabel, { color: theme.colors.secondary }]}>Tradition Preference</Text>
+            <View style={styles.traditionList}>
+              {TRADITIONS.map((option) => {
+                const selected = traditionPreference === option;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    style={[styles.traditionOption, { borderColor: selected ? theme.colors.primary : 'rgba(255,255,255,0.1)' }]}
+                    onPress={() => setTraditionPreference(option)}
+                  >
+                    <View style={[styles.radioOuter, { borderColor: theme.colors.primary }]}> 
+                      {selected && <View style={[styles.radioInner, { backgroundColor: theme.colors.primary }]} />}
+                    </View>
+                    <Text style={[styles.traditionText, { color: theme.colors.text }]}>{option}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </LinearGradient>
+  );
+};
+
+const FadeInMessage = ({ children }: { children: React.ReactNode }) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [opacity]);
+
+  return <Animated.View style={{ opacity }}>{children}</Animated.View>;
+};
+
+const TypingIndicator = ({ color }: { color: string }) => {
+  const dot1 = useRef(new Animated.Value(0.2)).current;
+  const dot2 = useRef(new Animated.Value(0.2)).current;
+  const dot3 = useRef(new Animated.Value(0.2)).current;
+
+  useEffect(() => {
+    const createPulse = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: 1, duration: 350, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0.2, duration: 350, useNativeDriver: true }),
+        ])
+      );
+
+    const anim1 = createPulse(dot1, 0);
+    const anim2 = createPulse(dot2, 120);
+    const anim3 = createPulse(dot3, 240);
+
+    anim1.start();
+    anim2.start();
+    anim3.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+    };
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={styles.typingRow}>
+      {[dot1, dot2, dot3].map((dot, index) => (
+        <Animated.View
+          key={`dot-${index}`}
+          style={[styles.typingDot, { backgroundColor: color, opacity: dot }]}
+        />
+      ))}
+    </View>
   );
 };
 
@@ -579,35 +810,85 @@ const styles = StyleSheet.create({
   },
   logoText: { fontSize: 28, fontWeight: '700', letterSpacing: 1 },
   tagline: { fontSize: 14, marginTop: 6 },
-  card: { borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  settingsButton: {
+    position: 'absolute',
+    right: 0,
+    top: 2,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  settingsIcon: { fontSize: 16 },
+  card: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
   chatCard: { paddingBottom: 16 },
   sectionHeader: { marginBottom: 12 },
   sectionTitle: { fontSize: 20, fontWeight: '600', marginBottom: 4 },
   sectionSubtitle: { fontSize: 14 },
   chatBody: { flex: 1, gap: 12 },
   chatList: { gap: 12, paddingBottom: 12 },
+  chatWatermark: {
+    position: 'absolute',
+    right: -40,
+    top: 30,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 1,
+    opacity: 0.08,
+  },
+  chatWatermarkInner: {
+    position: 'absolute',
+    left: 30,
+    top: 30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 1,
+  },
   bubble: { maxWidth: '85%', padding: 12, borderRadius: 18 },
   bubbleLeft: { alignSelf: 'flex-start' },
   bubbleRight: { alignSelf: 'flex-end' },
   assistantBubble: {
-    backgroundColor: 'rgba(200,161,90,0.16)',
+    backgroundColor: 'rgba(23,20,36,0.85)',
     borderWidth: 1,
-    shadowColor: '#C8A15A',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
+    shadowColor: '#7B6FAA',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
   },
   userBubble: {
-    backgroundColor: 'rgba(30,26,46,0.9)',
+    backgroundColor: 'rgba(200,161,90,0.22)',
     borderWidth: 1,
-    borderColor: 'rgba(123,111,170,0.3)',
   },
   bubbleText: { fontSize: 14, lineHeight: 20 },
+  sourcesWrap: { marginTop: 8 },
+  sourcesToggle: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
+  sourcesList: { marginTop: 6, gap: 4 },
+  sourceText: { fontSize: 12, lineHeight: 16 },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   input: { flex: 1, borderWidth: 1, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12 },
   sendButton: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 16 },
   sendText: { color: '#0C0A14', fontWeight: '700' },
+  typingRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  typingDot: { width: 6, height: 6, borderRadius: 3 },
+  emptyState: { marginBottom: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+  emptySubtitle: { fontSize: 13, marginBottom: 12 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
+  chipText: { fontSize: 12 },
+  divider: { height: 1, opacity: 0.3, marginBottom: 20 },
   accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  meditationHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  meditationIcon: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  meditationIconText: { fontSize: 16 },
   accordionToggle: { fontSize: 14, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
   accordionBody: { marginTop: 16 },
   centered: { alignItems: 'center' },
@@ -634,6 +915,36 @@ const styles = StyleSheet.create({
   sliderLabel: { fontSize: 14, marginBottom: 4 },
   completeBox: { alignItems: 'center', marginTop: 12, marginBottom: 8 },
   completeTitle: { fontSize: 18, fontWeight: '600' },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(12,10,20,0.7)',
+    padding: 24,
+    justifyContent: 'center',
+  },
+  modalCard: { borderRadius: 22, padding: 20, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 6 },
+  modalLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  modalText: { fontSize: 14, lineHeight: 20 },
+  traditionList: { gap: 8, marginTop: 6 },
+  traditionOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  traditionText: { fontSize: 14 },
+  radioOuter: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: { width: 8, height: 8, borderRadius: 4 },
 });
 
 export default WisdomScreen;
