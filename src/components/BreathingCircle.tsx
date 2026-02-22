@@ -9,7 +9,7 @@ const BreathingCircle: React.FC<{ paceSeconds?: number }> = ({ paceSeconds = 6 }
 
   useEffect(() => {
     scale.value = withRepeat(
-      withTiming(1.2, { duration: paceSeconds * 1000, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1.18, { duration: paceSeconds * 1000, easing: Easing.inOut(Easing.quad) }),
       -1,
       true
     );
@@ -21,10 +21,16 @@ const BreathingCircle: React.FC<{ paceSeconds?: number }> = ({ paceSeconds = 6 }
 
   return (
     <View style={styles.container}>
+      <View style={[styles.outerRing, { borderColor: theme.colors.secondary }]} />
+      <View style={[styles.innerRing, { borderColor: theme.colors.primary }]} />
       <Animated.View
         style={[
           styles.circle,
-          { borderColor: theme.colors.accent, backgroundColor: theme.colors.surface },
+          {
+            borderColor: theme.colors.primary,
+            backgroundColor: 'rgba(200,161,90,0.08)',
+            shadowColor: theme.colors.primary,
+          },
           animatedStyle,
         ]}
       />
@@ -36,16 +42,33 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 210,
+    height: 210,
+  },
+  outerRing: {
+    position: 'absolute',
+    width: 210,
+    height: 210,
+    borderRadius: 999,
+    borderWidth: 1,
+    opacity: 0.25,
+  },
+  innerRing: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 999,
+    borderWidth: 1,
+    opacity: 0.35,
   },
   circle: {
-    width: 180,
-    height: 180,
+    width: 160,
+    height: 160,
     borderRadius: 999,
     borderWidth: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 0 },
   },
 });
 

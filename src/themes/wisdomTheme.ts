@@ -1,14 +1,14 @@
 import { Theme } from './types';
 
 export const wisdomTheme: Theme = {
-  personaName: 'Wisdom',
+  personaName: 'LaNita',
   colors: {
-    primary: '#D4B36B', // warm gold
-    secondary: '#9C8A6A',
-    background: '#1A140F', // deep umber
-    text: '#F6EEE2', // soft parchment
-    accent: '#2B2118',
-    surface: '#231B14',
+    primary: '#C8A15A',
+    secondary: '#7B6FAA',
+    background: '#0C0A14',
+    text: '#E8E2D8',
+    accent: '#1E1A2E',
+    surface: '#151125',
   },
   fonts: {
     heading: 'System',
