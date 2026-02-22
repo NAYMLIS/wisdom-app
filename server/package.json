@@ -1,0 +1,14 @@
+{
+  "name": "lanita-counsel-api",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "counsel-api.js",
+  "scripts": {
+    "start": "node counsel-api.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "openai": "^4.62.0"
+  }
+}
