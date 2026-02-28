@@ -3,18 +3,20 @@ import { Theme } from './types';
 export const wisdomTheme: Theme = {
   personaName: 'LaNita',
   colors: {
-    primary: '#C8A15A',
-    secondary: '#7B6FAA',
-    background: '#0C0A14',
-    text: '#E8E2D8',
-    accent: '#1E1A2E',
-    surface: '#151125',
+    primary: '#B8963E',
+    secondary: '#8B7D6B',
+    background: '#F5F0E8',
+    text: '#3A2F27',
+    accent: '#EDE7DB',
+    surface: '#FDFBF7',
+    tertiary: '#A89B8C',
+    border: '#D4C9B8',
   },
   fonts: {
     heading: 'System',
     body: 'System',
   },
   iconography: {
-    pattern: 'sacred-geometry',
+    pattern: 'ornamental',
   },
 };

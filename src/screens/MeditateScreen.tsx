@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 10 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill: { borderWidth: 1, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
-  pillText: { fontSize: 14, color: '#333' },
+  pillText: { fontSize: 14, color: '#3A2F27' },
   sliderRow: { marginBottom: 12 },
   sliderLabel: { fontSize: 14, marginBottom: 4 },
   completeBox: { alignItems: 'center', marginTop: 12, marginBottom: 8 },

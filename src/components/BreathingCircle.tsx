@@ -28,7 +28,7 @@ const BreathingCircle: React.FC<{ paceSeconds?: number }> = ({ paceSeconds = 6 }
           styles.circle,
           {
             borderColor: theme.colors.primary,
-            backgroundColor: 'rgba(200,161,90,0.08)',
+            backgroundColor: 'rgba(184,150,62,0.1)',
             shadowColor: theme.colors.primary,
           },
           animatedStyle,

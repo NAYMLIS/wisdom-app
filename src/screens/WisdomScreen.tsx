@@ -23,10 +23,15 @@ import { useKeepAwake } from 'expo-keep-awake';
 import Constants from 'expo-constants';
 import Slider from '@react-native-community/slider';
 import BreathingCircle from '../components/BreathingCircle';
+import BreathingGuideText from '../components/BreathingGuideText';
+import StreakCounter from '../components/StreakCounter';
+import MeditationStats from '../components/MeditationStats';
+import DailyWisdomCard from '../components/DailyWisdomCard';
 import { useTheme } from '../themes/ThemeContext';
 import { loadSoundAsync, playOneShot } from '../services/audioService';
 import { WebNoise, unlockAudio } from '../services/webNoise';
 import { askCounsel, CounselSource } from '../services/counselService';
+import { userDataService } from '../services/userDataService';
 
 const DURATIONS = [5, 10, 15, 20, 30, 45, 60];
 const INTERVALS = [1, 2, 3, 5, 10, 15, 20, 30];
@@ -88,6 +93,8 @@ const WisdomScreen = () => {
     forest: 0,
     bowl: 0,
   });
+  const [moodAfter, setMoodAfter] = useState<'calm' | 'clear' | 'energized' | undefined>(undefined);
+  const [sessionLogged, setSessionLogged] = useState(false);
 
   const intervalBellRef = useRef<Audio.Sound | null>(null);
   const finalGongRef = useRef<Audio.Sound | null>(null);
@@ -103,14 +110,15 @@ const WisdomScreen = () => {
   const rotation = useRef(new Animated.Value(0)).current;
   const chatScrollRef = useRef<ScrollView | null>(null);
 
-  const stars = useMemo(
+  // Decorative gold flecks (subtle ornamental dots)
+  const flecks = useMemo(
     () =>
-      Array.from({ length: 48 }).map((_, index) => ({
-        id: `star-${index}`,
+      Array.from({ length: 20 }).map((_, index) => ({
+        id: `fleck-${index}`,
         left: `${Math.random() * 100}%`,
         top: `${Math.random() * 100}%`,
-        size: Math.random() * 2 + 1,
-        opacity: Math.random() * 0.5 + 0.2,
+        size: Math.random() * 3 + 1,
+        opacity: Math.random() * 0.12 + 0.04,
       })),
     []
   );
@@ -291,6 +299,34 @@ const WisdomScreen = () => {
     }
   };
 
+  const handleSessionLogged = async () => {
+    if (!sessionLogged && sessionComplete) {
+      try {
+        // Get the active ambient preset name
+        const activePreset = Object.entries(volumes).find(
+          ([_, vol]) => vol > 0
+        )?.[0] ?? 'silence';
+        
+        await userDataService.logMeditationSession(
+          durationMin,
+          activePreset,
+          undefined,
+          moodAfter
+        );
+        setSessionLogged(true);
+      } catch (error) {
+        console.error('Failed to log meditation session:', error);
+      }
+    }
+  };
+
+  const handleDismissSession = async () => {
+    await handleSessionLogged();
+    setSessionComplete(false);
+    setMoodAfter(undefined);
+    setSessionLogged(false);
+  };
+
   const formattedTime = useMemo(() => {
     const m = Math.floor(remaining / 60);
     const s = remaining % 60;
@@ -345,32 +381,30 @@ const WisdomScreen = () => {
   return (
     <LinearGradient colors={[theme.colors.background, theme.colors.accent]} style={styles.container}>
       <View style={styles.starfield} pointerEvents="none">
-        {stars.map((star) => (
+        {flecks.map((fleck) => (
           <View
-            key={star.id}
+            key={fleck.id}
             style={[
-              styles.star,
+              styles.fleck,
               {
-                left: star.left,
-                top: star.top,
-                width: star.size,
-                height: star.size,
-                opacity: star.opacity,
+                left: fleck.left,
+                top: fleck.top,
+                width: fleck.size,
+                height: fleck.size,
+                opacity: fleck.opacity,
               },
             ]}
           />
         ))}
       </View>
-      <Animated.View
+      {/* Ornamental corner accents */}
+      <View
         pointerEvents="none"
-        style={[styles.geometry, { borderColor: theme.colors.secondary, transform: [{ rotate }] }]}
+        style={[styles.ornamentTopRight, { borderColor: theme.colors.border }]}
       />
-      <Animated.View
+      <View
         pointerEvents="none"
-        style={[
-          styles.geometryInner,
-          { borderColor: theme.colors.primary, transform: [{ rotate: reverseRotate }] },
-        ]}
+        style={[styles.ornamentBottomLeft, { borderColor: theme.colors.border }]}
       />
       <KeyboardAvoidingView
         style={styles.container}
@@ -398,6 +432,18 @@ const WisdomScreen = () => {
               Where all paths converge in quiet light.
             </Text>
           </View>
+
+          <View style={styles.statsSection}>
+            <StreakCounter size="medium" />
+            <MeditationStats />
+          </View>
+
+          <DailyWisdomCard
+            onMeditatePress={() => setShowMeditation(true)}
+            onBookmarkPress={() => {
+              // TODO: Implement bookmarking to user data
+            }}
+          />
 
           <View style={[styles.card, styles.chatCard, { backgroundColor: theme.colors.surface, minHeight: chatMinHeight }]}
           >
@@ -545,6 +591,7 @@ const WisdomScreen = () => {
                 <View style={styles.centered}>
                   <View style={[styles.breathHalo, { shadowColor: theme.colors.primary }]}>
                     <BreathingCircle paceSeconds={breathPace} />
+                    <BreathingGuideText isActive={isRunning && !isPaused && !isPreparing} breathPace={breathPace} />
                   </View>
                 </View>
 
@@ -552,11 +599,38 @@ const WisdomScreen = () => {
                 {isPaused && <Text style={[styles.subtle, { color: theme.colors.secondary }]}>Paused</Text>}
                 {sessionComplete && (
                   <View style={styles.completeBox}>
-                    <Text style={[styles.completeTitle, { color: theme.colors.text }]}>Session Complete</Text>
+                    <Text style={[styles.completeTitle, { color: theme.colors.text }]}>✨ Session Complete</Text>
                     <Text style={[styles.subtle, { color: theme.colors.secondary }]}>Duration: {durationMin} minutes</Text>
-                    <TouchableOpacity style={[styles.button, { backgroundColor: theme.colors.primary }]}
+                    
+                    <View style={styles.moodSection}>
+                      <Text style={[styles.moodLabel, { color: theme.colors.text }]}>How are you feeling?</Text>
+                      <View style={styles.moodRow}>
+                        {[
+                          { emoji: '😌', label: 'Calm', value: 'calm' as const },
+                          { emoji: '🧠', label: 'Clear', value: 'clear' as const },
+                          { emoji: '⚡', label: 'Energized', value: 'energized' as const },
+                        ].map((mood) => (
+                          <TouchableOpacity
+                            key={mood.value}
+                            style={[
+                              styles.moodButton,
+                              { borderColor: theme.colors.tertiary },
+                              moodAfter === mood.value && { borderColor: theme.colors.primary, borderWidth: 2 },
+                            ]}
+                            onPress={() => setMoodAfter(mood.value)}
+                          >
+                            <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+                            <Text style={[styles.moodText, { color: theme.colors.text }]}>{mood.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.button, { backgroundColor: theme.colors.primary }]}
+                      onPress={handleDismissSession}
                     >
-                      <Text style={styles.buttonText}>Journal Reflection</Text>
+                      <Text style={styles.buttonText}>Finish</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -597,7 +671,7 @@ const WisdomScreen = () => {
                           style={[
                             styles.pillText,
                             { color: theme.colors.text },
-                            d === durationMin && { color: '#1A140F' },
+                            d === durationMin && { color: '#FDFBF7' },
                           ]}
                         >
                           {d} min
@@ -624,7 +698,7 @@ const WisdomScreen = () => {
                           style={[
                             styles.pillText,
                             { color: theme.colors.text },
-                            i === intervalMin && { color: '#1A140F' },
+                            i === intervalMin && { color: '#FDFBF7' },
                           ]}
                         >
                           {i} min
@@ -693,7 +767,7 @@ const WisdomScreen = () => {
                 return (
                   <TouchableOpacity
                     key={option}
-                    style={[styles.traditionOption, { borderColor: selected ? theme.colors.primary : 'rgba(255,255,255,0.1)' }]}
+                    style={[styles.traditionOption, { borderColor: selected ? theme.colors.primary : 'rgba(212,201,184,0.4)' }]}
                     onPress={() => setTraditionPreference(option)}
                   >
                     <View style={[styles.radioOuter, { borderColor: theme.colors.primary }]}> 
@@ -771,26 +845,26 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: 24, paddingBottom: 80 },
   starfield: { ...StyleSheet.absoluteFillObject },
-  star: { position: 'absolute', backgroundColor: '#FFFFFF', borderRadius: 999 },
-  geometry: {
+  fleck: { position: 'absolute', backgroundColor: '#B8963E', borderRadius: 999 },
+  ornamentTopRight: {
     position: 'absolute',
-    top: -120,
-    right: -80,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    top: -60,
+    right: -60,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
     borderWidth: 1,
-    opacity: 0.2,
+    opacity: 0.15,
   },
-  geometryInner: {
+  ornamentBottomLeft: {
     position: 'absolute',
-    bottom: -120,
-    left: -90,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    bottom: -80,
+    left: -80,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     borderWidth: 1,
-    opacity: 0.25,
+    opacity: 0.12,
   },
   header: { marginBottom: 18 },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -825,7 +899,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(212,201,184,0.5)',
   },
   chatCard: { paddingBottom: 16 },
   sectionHeader: { marginBottom: 12 },
@@ -856,15 +930,15 @@ const styles = StyleSheet.create({
   bubbleLeft: { alignSelf: 'flex-start' },
   bubbleRight: { alignSelf: 'flex-end' },
   assistantBubble: {
-    backgroundColor: 'rgba(23,20,36,0.85)',
+    backgroundColor: '#FDFBF7',
     borderWidth: 1,
-    shadowColor: '#7B6FAA',
-    shadowOpacity: 0.2,
+    shadowColor: '#8B7D6B',
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
   },
   userBubble: {
-    backgroundColor: 'rgba(200,161,90,0.22)',
+    backgroundColor: 'rgba(184,150,62,0.12)',
     borderWidth: 1,
   },
   bubbleText: { fontSize: 14, lineHeight: 20 },
@@ -875,7 +949,7 @@ const styles = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   input: { flex: 1, borderWidth: 1, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12 },
   sendButton: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 16 },
-  sendText: { color: '#0C0A14', fontWeight: '700' },
+  sendText: { color: '#FDFBF7', fontWeight: '700' },
   typingRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   typingDot: { width: 6, height: 6, borderRadius: 3 },
   emptyState: { marginBottom: 12 },
@@ -895,7 +969,7 @@ const styles = StyleSheet.create({
   breathHalo: {
     padding: 18,
     borderRadius: 140,
-    backgroundColor: 'rgba(12,10,20,0.6)',
+    backgroundColor: 'rgba(245,240,232,0.6)',
     shadowOpacity: 0.6,
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 0 },
@@ -905,7 +979,7 @@ const styles = StyleSheet.create({
   controlsRow: { flexDirection: 'row', gap: 12, marginTop: 16, marginBottom: 16, flexWrap: 'wrap' },
   button: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 24 },
   buttonOutline: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 24, borderWidth: 1 },
-  buttonText: { color: '#fff', fontWeight: '600' },
+  buttonText: { color: '#FDFBF7', fontWeight: '600' },
   section: { width: '100%', marginTop: 16 },
   sectionLabel: { fontSize: 16, fontWeight: '600', marginBottom: 10 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -917,11 +991,11 @@ const styles = StyleSheet.create({
   completeTitle: { fontSize: 18, fontWeight: '600' },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(12,10,20,0.7)',
+    backgroundColor: 'rgba(58,47,39,0.5)',
     padding: 24,
     justifyContent: 'center',
   },
-  modalCard: { borderRadius: 22, padding: 20, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  modalCard: { borderRadius: 22, padding: 20, gap: 10, borderWidth: 1, borderColor: 'rgba(212,201,184,0.6)' },
   modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 6 },
   modalLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
   modalText: { fontSize: 14, lineHeight: 20 },
@@ -945,6 +1019,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioInner: { width: 8, height: 8, borderRadius: 4 },
+  moodSection: {
+    marginVertical: 16,
+    gap: 12,
+  },
+  moodLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  moodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    gap: 12,
+  },
+  moodButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    gap: 6,
+  },
+  moodEmoji: {
+    fontSize: 24,
+  },
+  moodText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  statsSection: {
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 16,
+  },
 });
 
 export default WisdomScreen;

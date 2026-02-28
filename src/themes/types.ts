@@ -7,6 +7,8 @@ export type Theme = {
     text: string;
     accent: string;
     surface: string;
+    tertiary: string;
+    border: string;
   };
   fonts: {
     heading: string;
