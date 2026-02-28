@@ -13,8 +13,8 @@ export const wisdomTheme: Theme = {
     border: '#D4C9B8',
   },
   fonts: {
-    heading: 'System',
-    body: 'System',
+    heading: '"Cormorant Garamond", Georgia, serif',
+    body: '"EB Garamond", Georgia, serif',
   },
   iconography: {
     pattern: 'ornamental',

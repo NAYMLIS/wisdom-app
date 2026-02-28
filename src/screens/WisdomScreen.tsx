@@ -420,7 +420,7 @@ const WisdomScreen = () => {
               <View style={[styles.logoGlyph, { borderColor: theme.colors.primary }]}>
                 <View style={[styles.logoGlyphInner, { borderColor: theme.colors.secondary }]} />
               </View>
-              <Text style={[styles.logoText, { color: theme.colors.text }]}>LaNita</Text>
+              <Text style={[styles.logoText, { color: theme.colors.text, fontFamily: theme.fonts.heading }]}>LaNita</Text>
             </View>
             <TouchableOpacity
               style={[styles.settingsButton, { borderColor: theme.colors.secondary }]}
@@ -428,7 +428,7 @@ const WisdomScreen = () => {
             >
               <Text style={[styles.settingsIcon, { color: theme.colors.primary }]}>⚙︎</Text>
             </TouchableOpacity>
-            <Text style={[styles.tagline, { color: theme.colors.secondary }]}>
+            <Text style={[styles.tagline, { color: theme.colors.secondary, fontFamily: theme.fonts.body, fontStyle: 'italic' }]}>
               Where all paths converge in quiet light.
             </Text>
           </View>
@@ -448,7 +448,7 @@ const WisdomScreen = () => {
           <View style={[styles.card, styles.chatCard, { backgroundColor: theme.colors.surface, minHeight: chatMinHeight }]}
           >
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>AI Counsel</Text>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: theme.fonts.heading }]}>AI Counsel</Text>
               <Text style={[styles.sectionSubtitle, { color: theme.colors.secondary }]}>
                 A gentle space for reflection and clarity.
               </Text>
@@ -558,7 +558,11 @@ const WisdomScreen = () => {
             </View>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.colors.secondary }]} />
+          <View style={styles.ornamentalDivider}>
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+            <Text style={[styles.dividerOrnament, { color: theme.colors.primary }]}>✦</Text>
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+          </View>
 
           <View style={[styles.card, { backgroundColor: theme.colors.surface }]}
           >
@@ -575,7 +579,7 @@ const WisdomScreen = () => {
                     <Text style={[styles.meditationIconText, { color: theme.colors.primary }]}>✦</Text>
                 </View>
                 <View>
-                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Meditation</Text>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: theme.fonts.heading }]}>Meditation</Text>
                   <Text style={[styles.sectionSubtitle, { color: theme.colors.secondary }]}>
                     Breathe with bells, ambient sound, and stillness.
                   </Text>
@@ -882,7 +886,7 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     borderWidth: 1,
   },
-  logoText: { fontSize: 28, fontWeight: '700', letterSpacing: 1 },
+  logoText: { fontSize: 32, fontWeight: '600', letterSpacing: 2 },
   tagline: { fontSize: 14, marginTop: 6 },
   settingsButton: {
     position: 'absolute',
@@ -895,11 +899,17 @@ const styles = StyleSheet.create({
   },
   settingsIcon: { fontSize: 16 },
   card: {
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: 'rgba(212,201,184,0.5)',
+    borderTopWidth: 2,
+    borderTopColor: '#B8963E',
+    shadowColor: '#8B7D6B',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
   chatCard: { paddingBottom: 16 },
   sectionHeader: { marginBottom: 12 },
@@ -941,7 +951,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(184,150,62,0.12)',
     borderWidth: 1,
   },
-  bubbleText: { fontSize: 14, lineHeight: 20 },
+  bubbleText: { fontSize: 15, lineHeight: 22 },
   sourcesWrap: { marginTop: 8 },
   sourcesToggle: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
   sourcesList: { marginTop: 6, gap: 4 },
@@ -953,12 +963,14 @@ const styles = StyleSheet.create({
   typingRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   typingDot: { width: 6, height: 6, borderRadius: 3 },
   emptyState: { marginBottom: 12 },
-  emptyTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
   emptySubtitle: { fontSize: 13, marginBottom: 12 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 12 },
-  divider: { height: 1, opacity: 0.3, marginBottom: 20 },
+  ornamentalDivider: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 },
+  dividerLine: { flex: 1, height: 1, opacity: 0.4 },
+  dividerOrnament: { fontSize: 14, opacity: 0.6 },
   accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   meditationHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   meditationIcon: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
@@ -974,7 +986,7 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 0 },
   },
-  timer: { fontSize: 46, fontWeight: '300', marginTop: 16, textAlign: 'center' },
+  timer: { fontSize: 46, fontWeight: '300', marginTop: 16, textAlign: 'center', letterSpacing: 2 },
   subtle: { fontSize: 14, marginTop: 4, textAlign: 'center' },
   controlsRow: { flexDirection: 'row', gap: 12, marginTop: 16, marginBottom: 16, flexWrap: 'wrap' },
   button: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 24 },
@@ -996,7 +1008,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCard: { borderRadius: 22, padding: 20, gap: 10, borderWidth: 1, borderColor: 'rgba(212,201,184,0.6)' },
-  modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 6 },
+  modalTitle: { fontSize: 22, fontWeight: '600', marginBottom: 6 },
   modalLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
   modalText: { fontSize: 14, lineHeight: 20 },
   traditionList: { gap: 8, marginTop: 6 },

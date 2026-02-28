@@ -89,7 +89,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(184, 150, 62, 0.4)',
+    borderColor: '#B8963E',
+    shadowColor: '#B8963E',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
   },
   content: {
     alignItems: 'center',

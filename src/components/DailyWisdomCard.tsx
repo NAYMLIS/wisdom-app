@@ -138,11 +138,19 @@ const DailyWisdomCard = ({ onMeditatePress, onBookmarkPress }: DailyWisdomCardPr
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 14,
-    padding: 18,
+    borderRadius: 16,
+    padding: 20,
     marginVertical: 12,
     marginHorizontal: 8,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(212,201,184,0.5)',
+    borderTopWidth: 2,
+    borderTopColor: '#B8963E',
+    shadowColor: '#8B7D6B',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
   themeIndicator: {
     position: 'absolute',
@@ -170,11 +178,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   quote: {
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 24,
+    fontSize: 18,
+    fontWeight: '500',
+    lineHeight: 26,
     marginBottom: 8,
     fontStyle: 'italic',
+    fontFamily: '"Cormorant Garamond", Georgia, serif',
   },
   author: {
     fontSize: 13,
@@ -189,7 +198,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(184, 150, 62, 0.06)',
     marginBottom: 12,
   },
   reflectionLabel: {

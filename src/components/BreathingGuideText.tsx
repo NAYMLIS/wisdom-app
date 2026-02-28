@@ -123,6 +123,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textAlign: 'center',
     lineHeight: 56,
+    fontFamily: '"Cormorant Garamond", Georgia, serif',
   },
 });
 

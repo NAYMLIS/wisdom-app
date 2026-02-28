@@ -102,9 +102,15 @@ const MeditationStats = () => {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(212,201,184,0.4)',
+    shadowColor: '#8B7D6B',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
   summaryRow: {
     flexDirection: 'row',
