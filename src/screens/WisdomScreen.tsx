@@ -420,7 +420,6 @@ const WisdomScreen = () => {
               <View style={[styles.logoGlyph, { borderColor: theme.colors.primary }]}>
                 <View style={[styles.logoGlyphInner, { borderColor: theme.colors.secondary }]} />
               </View>
-              <Text style={[styles.logoText, { color: theme.colors.text, fontFamily: theme.fonts.heading }]}>LaNita</Text>
             </View>
             <TouchableOpacity
               style={[styles.settingsButton, { borderColor: theme.colors.secondary }]}
@@ -761,9 +760,9 @@ const WisdomScreen = () => {
           <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}> 
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Settings</Text>
             <Text style={[styles.modalLabel, { color: theme.colors.secondary }]}>App</Text>
-            <Text style={[styles.modalText, { color: theme.colors.text }]}>LaNita • v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
-            <Text style={[styles.modalLabel, { color: theme.colors.secondary }]}>About LaNita</Text>
-            <Text style={[styles.modalText, { color: theme.colors.text }]}>LaNita bridges ancient wisdom and modern practice. Seek guidance from humanity's deepest spiritual traditions.</Text>
+            <Text style={[styles.modalText, { color: theme.colors.text }]}>v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
+            <Text style={[styles.modalLabel, { color: theme.colors.secondary }]}>About</Text>
+            <Text style={[styles.modalText, { color: theme.colors.text }]}>Ancient wisdom and modern practice. Seek guidance from humanity's deepest spiritual traditions.</Text>
             <Text style={[styles.modalLabel, { color: theme.colors.secondary }]}>Tradition Preference</Text>
             <View style={styles.traditionList}>
               {TRADITIONS.map((option) => {
